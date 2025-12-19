@@ -30,16 +30,22 @@
   <div id="kpiContainer" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
 
   <!-- GRAFICI -->
-  <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+ <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+  <div class="h-[380px]">
     <canvas id="lineDaily"></canvas>
+  </div>
+  <div class="h-[380px]">
     <canvas id="lineStation"></canvas>
   </div>
+</div>
 
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+  <div class="h-[320px]">
     <canvas id="donutFleet"></canvas>
+  </div>
+  <div class="h-[320px]">
     <canvas id="donutMaintenance"></canvas>
   </div>
-
 </div>
 
 <script>
@@ -202,80 +208,194 @@ function renderKPIs(curr, prev, station) {
 ================================ */
 let charts = {};
 
-function renderCharts(curr, station) {
+function renderCharts(currBookings, selectedStation) {
 
+  // 🔥 distrugge correttamente i grafici precedenti
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
 
-  /* LINE DAILY */
-  const daily = {};
-  curr.forEach(b => {
-    const d = new Date(b.Checkout).toISOString().slice(0,10);
-    daily[d] ??= {c:0,r:0,a:0};
-    daily[d].c++;
-    daily[d].r += b["Total revenue"]||0;
-    daily[d].a += b.Ancillaries||0;
-  });
+  /* ===============================
+     LINE CHART – ANDAMENTO GIORNALIERO
+  ================================ */
+  const dailyMap = {};
 
-  charts.lineDaily = new Chart(lineDaily,{
-    type:'line',
-    data:{
-      labels:Object.keys(daily),
-      datasets:[{
-        label:'Prenotazioni',
-        data:Object.values(daily).map(v=>v.c),
-        borderColor:'#38bdf8'
-      }]
+  currBookings.forEach(b => {
+    const day = new Date(b.Checkout).toISOString().slice(0,10);
+    if (!dailyMap[day]) {
+      dailyMap[day] = { count:0, revenue:0, anc:0, revDay:0 };
     }
+    dailyMap[day].count++;
+    dailyMap[day].revenue += b["Total revenue"] || 0;
+    dailyMap[day].anc += b.Ancillaries || 0;
+    dailyMap[day].revDay += b["RevDay Ancillaries"] || 0;
   });
 
-  /* LINE STATION */
-  const st = stations.filter(s=>!station||s.Station===station);
-  charts.lineStation = new Chart(lineStation,{
-    type:'line',
-    data:{
-      labels:st.map(s=>s.Station),
-      datasets:[
-        {
-          label:'Fleet Current',
-          data:st.map(s=>s.fleet_current),
-          borderColor:'#22c55e'
+  const days = Object.keys(dailyMap).sort();
+
+  charts.lineDaily = new Chart(
+    document.getElementById("lineDaily"),
+    {
+      type: "line",
+      data: {
+        labels: days,
+        datasets: [
+          {
+            label: "Prenotazioni",
+            data: days.map(d => dailyMap[d].count),
+            borderColor: "#38bdf8",
+            backgroundColor: "rgba(56,189,248,0.15)",
+            tension: 0.35,
+            fill: true,
+            pointRadius: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: ctx => {
+                const d = dailyMap[ctx.label];
+                return [
+                  `Revenue: €${d.revenue.toFixed(2)}`,
+                  `Ancillaries: €${d.anc.toFixed(2)}`,
+                  `RevDay Anc: €${(d.revDay/d.count || 0).toFixed(2)}`
+                ];
+              }
+            }
+          }
         },
-        {
-          label:'Utilization %',
-          data:st.map(s=>s.utilization_current*100),
-          borderColor:'#f59e0b',
-          yAxisID:'y1'
+        scales: {
+          x: { ticks: { color: "#94a3b8" } },
+          y: { ticks: { color: "#94a3b8" } }
         }
-      ]
-    },
-    options:{ scales:{ y1:{ position:'right' } } }
-  });
-
-  /* DONUT FLEET */
-  charts.donutFleet = new Chart(donutFleet,{
-    type:'doughnut',
-    data:{
-      labels:st.map(s=>s.Station),
-      datasets:[{ data:st.map(s=>s.fleet_current) }]
+      }
     }
-  });
+  );
 
-  /* DONUT MAINTENANCE */
-  const byType = {};
-  maintenance
-    .filter(m => !station || m["Branch Office"] === station)
+  /* ===============================
+     LINE CHART – PERFORMANCE STATION
+  ================================ */
+  const stationData = reporting_stations
+    .filter(s => !selectedStation || s.Station === selectedStation);
+
+  charts.lineStation = new Chart(
+    document.getElementById("lineStation"),
+    {
+      type: "line",
+      data: {
+        labels: stationData.map(s => s.Station),
+        datasets: [
+          {
+            label: "Fleet Current",
+            data: stationData.map(s => s.fleet_current),
+            borderColor: "#22c55e",
+            tension: 0.3,
+            yAxisID: "y"
+          },
+          {
+            label: "Utilization %",
+            data: stationData.map(s => s.utilization_current * 100),
+            borderColor: "#f59e0b",
+            tension: 0.3,
+            yAxisID: "y1"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            labels: { boxWidth: 12 }
+          }
+        },
+        scales: {
+          y: {
+            position: "left",
+            ticks: { color: "#94a3b8" }
+          },
+          y1: {
+            position: "right",
+            grid: { drawOnChartArea: false },
+            ticks: {
+              callback: v => v + "%",
+              color: "#94a3b8"
+            }
+          },
+          x: { ticks: { color: "#94a3b8" } }
+        }
+      }
+    }
+  );
+
+  /* ===============================
+     DONUT – FLEET PER STATION
+  ================================ */
+  charts.donutFleet = new Chart(
+    document.getElementById("donutFleet"),
+    {
+      type: "doughnut",
+      data: {
+        labels: stationData.map(s => s.Station),
+        datasets: [
+          {
+            data: stationData.map(s => s.fleet_current)
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "right",
+            labels: { boxWidth: 12 }
+          }
+        }
+      }
+    }
+  );
+
+  /* ===============================
+     DONUT – MANUTENZIONE PER TIPO
+  ================================ */
+  const maintMap = {};
+
+  maintenance_services
+    .filter(m => !selectedStation || m["Branch Office"] === selectedStation)
     .forEach(m => {
-      byType[m.Type] = (byType[m.Type]||0)+1;
+      maintMap[m.Type] = (maintMap[m.Type] || 0) + 1;
     });
 
-  charts.donutMaintenance = new Chart(donutMaintenance,{
-    type:'doughnut',
-    data:{
-      labels:Object.keys(byType),
-      datasets:[{ data:Object.values(byType) }]
+  charts.donutMaintenance = new Chart(
+    document.getElementById("donutMaintenance"),
+    {
+      type: "doughnut",
+      data: {
+        labels: Object.keys(maintMap),
+        datasets: [
+          {
+            data: Object.values(maintMap)
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "right",
+            labels: { boxWidth: 12 }
+          }
+        }
+      }
     }
-  });
+  );
 }
 </script>
 </body>
