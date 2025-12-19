@@ -18,37 +18,37 @@
 
   <!-- FILTRI -->
   <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
-  <input type="date" id="dateFrom" class="bg-slate-800 p-2 rounded">
-  <input type="date" id="dateTo" class="bg-slate-800 p-2 rounded">
+    <input type="date" id="dateFrom" class="bg-slate-800 p-2 rounded">
+    <input type="date" id="dateTo" class="bg-slate-800 p-2 rounded">
 
-  <select id="stationFilter" class="bg-slate-800 p-2 rounded"></select>
-  <select id="providerFilter" class="bg-slate-800 p-2 rounded"></select>
-  <select id="agentFilter" class="bg-slate-800 p-2 rounded"></select>
-  <select id="channelFilter" class="bg-slate-800 p-2 rounded"></select>
-</div>
-
-  
+    <select id="stationFilter" class="bg-slate-800 p-2 rounded"></select>
+    <select id="providerFilter" class="bg-slate-800 p-2 rounded"></select>
+    <select id="agentFilter" class="bg-slate-800 p-2 rounded"></select>
+    <select id="channelFilter" class="bg-slate-800 p-2 rounded"></select>
+  </div>
 
   <!-- KPI -->
   <div id="kpiContainer" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
 
   <!-- GRAFICI -->
- <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-  <div class="h-[380px]">
-    <canvas id="lineDaily"></canvas>
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+    <div class="h-[380px] bg-slate-900 p-3 rounded">
+      <canvas id="lineDaily"></canvas>
+    </div>
+    <div class="h-[380px] bg-slate-900 p-3 rounded">
+      <canvas id="lineStation"></canvas>
+    </div>
   </div>
-  <div class="h-[380px]">
-    <canvas id="lineStation"></canvas>
-  </div>
-</div>
 
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-  <div class="h-[320px]">
-    <canvas id="donutFleet"></canvas>
+    <div class="h-[320px] bg-slate-900 p-3 rounded">
+      <canvas id="donutFleet"></canvas>
+    </div>
+    <div class="h-[320px] bg-slate-900 p-3 rounded">
+      <canvas id="donutMaintenance"></canvas>
+    </div>
   </div>
-  <div class="h-[320px]">
-    <canvas id="donutMaintenance"></canvas>
-  </div>
+
 </div>
 
 <script>
@@ -76,17 +76,13 @@ function init() {
   setDefaultDates();
   applyFilters();
 
-  // Date range
   dateFrom.addEventListener('change', applyFilters);
   dateTo.addEventListener('change', applyFilters);
-
-  // Filtri
   stationFilter.addEventListener('change', applyFilters);
   providerFilter.addEventListener('change', applyFilters);
   agentFilter.addEventListener('change', applyFilters);
   channelFilter.addEventListener('change', applyFilters);
 }
-
 
 /* ===============================
    HELPERS
@@ -110,6 +106,11 @@ function populateFilters() {
     [...new Set(bookings.map(b => b.Provider).filter(Boolean))]
       .map(v => `<option>${v}</option>`).join('');
 
+  agentFilter.innerHTML =
+    `<option value="">All Agents</option>` +
+    [...new Set(bookings.map(b => b.Agent).filter(Boolean))]
+      .map(v => `<option>${v}</option>`).join('');
+
   channelFilter.innerHTML =
     `<option value="">All Channels</option>` +
     [...new Set(bookings.map(b => b["Selling channel"]).filter(Boolean))]
@@ -131,87 +132,53 @@ function applyFilters() {
 
   const from = new Date(dateFrom.value);
   const to = new Date(dateTo.value);
-  const days = Math.max(1, (to - from) / 86400000);
-
-  const prevFrom = new Date(from.getTime() - days*86400000);
-  const prevTo = from;
+  if (isNaN(from) || isNaN(to)) return;
 
   const st = stationFilter.value;
   const pr = providerFilter.value;
+  const ag = agentFilter.value;
   const ch = channelFilter.value;
 
-  const filterBooking = (b, f, t) =>
+  const filterBooking = b =>
     (!st || b["Checkout Station"] === st) &&
     (!pr || b.Provider === pr) &&
+    (!ag || b.Agent === ag) &&
     (!ch || b["Selling channel"] === ch) &&
-    new Date(b.Checkout) >= f &&
-    new Date(b.Checkout) <= t;
+    new Date(b.Checkout) >= from &&
+    new Date(b.Checkout) <= to;
 
-  const curr = bookings.filter(b => filterBooking(b, from, to));
-  const prev = bookings.filter(b => filterBooking(b, prevFrom, prevTo));
+  const curr = bookings.filter(filterBooking);
+  const prev = []; // placeholder per confronto futuro
 
-  renderKPIs(curr, prev, st);
+  renderKPIs(curr, prev);
   renderCharts(curr, st);
 }
 
 /* ===============================
    KPI
 ================================ */
-function renderKPIs(curr, prev, station) {
+function renderKPIs(curr, prev) {
+
+  const fleetAvg = avg(stations, s => s.fleet_current);
+  const utilAvg = avg(stations, s => s.utilization_current) * 100;
 
   const kpis = [
-    {
-      label: "Prenotazioni",
-      v: curr.length,
-      p: prev.length
-    },
-    {
-      label: "Revenue €",
-      v: sum(curr, b => b["Total revenue"] || 0),
-      p: sum(prev, b => b["Total revenue"] || 0)
-    },
-    {
-      label: "Ancillaries €",
-      v: sum(curr, b => b.Ancillaries || 0),
-      p: sum(prev, b => b.Ancillaries || 0)
-    },
-    {
-      label: "RevDay Anc.",
-      v: avg(curr, b => b["RevDay Ancillaries"] || 0),
-      p: avg(prev, b => b["RevDay Ancillaries"] || 0)
-    }
+    { label: "Prenotazioni", v: curr.length, p: prev.length },
+    { label: "Revenue €", v: sum(curr, b => b["Total revenue"] || 0), p: 0 },
+    { label: "Ancillaries €", v: sum(curr, b => b.Ancillaries || 0), p: 0 },
+    { label: "RevDay Anc.", v: avg(curr, b => b["RevDay Ancillaries"] || 0), p: 0 },
+    { label: "% Utilization", v: utilAvg, p: 0 },
+    { label: "Fleet Current", v: fleetAvg, p: 0 },
+    { label: "Vehicles in Maintenance", v: maintenance.length, p: 0 }
   ];
 
-  const fleet = stations.filter(s => !station || s.Station === station);
-
-  kpis.push(
-    {
-      label: "% Utilization",
-      v: avg(fleet, s => s.utilization_current)*100,
-      p: 0
-    },
-    {
-      label: "Fleet Current",
-      v: avg(fleet, s => s.fleet_current),
-      p: 0
-    },
-  {
-  label: "Vehicles in Maintenance",
-  v: maintenance.length,
-  p: 0
-};
-
-  kpiContainer.innerHTML = kpis.map(k => {
-    const d = pct(k.v, k.p);
-    return `
-      <div class="bg-slate-900 p-4 rounded">
-        <div class="text-slate-400 text-sm">${k.label}</div>
-        <div class="text-2xl font-bold">${k.v.toFixed(1)}</div>
-        <div class="${d>=0?'text-green-400':'text-red-400'} text-sm">
-          ${d.toFixed(1)}%
-        </div>
-      </div>`;
-  }).join('');
+  kpiContainer.innerHTML = kpis.map(k => `
+    <div class="bg-slate-900 p-4 rounded">
+      <div class="text-slate-400 text-sm">${k.label}</div>
+      <div class="text-2xl font-bold">${k.v.toFixed(1)}</div>
+      <div class="text-green-400 text-sm">0.0%</div>
+    </div>
+  `).join('');
 }
 
 /* ===============================
@@ -221,189 +188,132 @@ let charts = {};
 
 function renderCharts(currBookings, selectedStation) {
 
-  /* ===============================
-     CLEANUP
-  ================================ */
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
 
-  /* ===============================
-     LINE CHART – ANDAMENTO GIORNALIERO
-  ================================ */
-  const dailyMap = {};
-
+  /* LINE DAILY */
+  const daily = {};
   currBookings.forEach(b => {
-    const day = new Date(b.Checkout).toISOString().slice(0, 10);
-    dailyMap[day] ??= { count: 0, revenue: 0, anc: 0, revDay: 0 };
-    dailyMap[day].count++;
-    dailyMap[day].revenue += b["Total revenue"] || 0;
-    dailyMap[day].anc += b.Ancillaries || 0;
-    dailyMap[day].revDay += b["RevDay Ancillaries"] || 0;
+    const d = new Date(b.Checkout).toISOString().slice(0,10);
+    daily[d] ??= 0;
+    daily[d]++;
   });
 
-  const days = Object.keys(dailyMap).sort();
-
-  charts.lineDaily = new Chart(lineDaily, {
-    type: "line",
-    data: {
-      labels: days,
-      datasets: [{
-        label: "Prenotazioni",
-        data: days.map(d => dailyMap[d].count),
-        borderColor: "#38bdf8",
-        backgroundColor: "rgba(56,189,248,0.15)",
-        fill: true,
-        tension: 0.35,
-        pointRadius: 3
+  charts.lineDaily = new Chart(lineDaily,{
+    type:'line',
+    data:{
+      labels:Object.keys(daily),
+      datasets:[{
+        label:'Prenotazioni',
+        data:Object.values(daily),
+        borderColor:'#38bdf8',
+        fill:true,
+        tension:0.3
       }]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: "Andamento Prenotazioni Giornaliere",
-          color: "#e5e7eb",
-          font: { size: 16, weight: "600" },
-          padding: { bottom: 12 }
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        title:{
+          display:true,
+          text:'Andamento Prenotazioni Giornaliere',
+          color:'#e5e7eb',
+          font:{size:16,weight:'600'}
         },
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            afterLabel: ctx => {
-              const d = dailyMap[ctx.label];
-              return [
-                `Revenue: €${d.revenue.toFixed(2)}`,
-                `Ancillaries: €${d.anc.toFixed(2)}`,
-                `RevDay Anc: €${(d.revDay / d.count || 0).toFixed(2)}`
-              ];
-            }
-          }
+        legend:{display:false}
+      }
+    }
+  });
+
+  /* LINE STATION */
+  const stationData = stations.filter(
+    s => !selectedStation || s.Station === selectedStation
+  );
+
+  charts.lineStation = new Chart(lineStation,{
+    type:'line',
+    data:{
+      labels:stationData.map(s=>s.Station),
+      datasets:[
+        {
+          label:'Fleet Current',
+          data:stationData.map(s=>s.fleet_current),
+          borderColor:'#22c55e'
+        },
+        {
+          label:'Utilization %',
+          data:stationData.map(s=>s.utilization_current*100),
+          borderColor:'#f59e0b',
+          yAxisID:'y1'
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        title:{
+          display:true,
+          text:'Performance Flotta per Station',
+          color:'#e5e7eb',
+          font:{size:16,weight:'600'}
+        }
+      },
+      scales:{
+        y:{position:'left'},
+        y1:{position:'right',grid:{drawOnChartArea:false}}
+      }
+    }
+  });
+
+  /* DONUT FLEET */
+  charts.donutFleet = new Chart(donutFleet,{
+    type:'doughnut',
+    data:{
+      labels:stationData.map(s=>s.Station),
+      datasets:[{data:stationData.map(s=>s.fleet_current)}]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        title:{
+          display:true,
+          text:'Distribuzione Fleet Current per Station',
+          color:'#e5e7eb',
+          font:{size:16,weight:'600'}
         }
       }
     }
   });
 
-  /* ===============================
-     LINE CHART – PERFORMANCE STATION
-  ================================ */
-  const stationData = stations.filter(
-    s => !selectedStation || s.Station === selectedStation
-  );
-
-  if (stationData.length) {
-    charts.lineStation = new Chart(lineStation, {
-      type: "line",
-      data: {
-        labels: stationData.map(s => s.Station),
-        datasets: [
-          {
-            label: "Fleet Current",
-            data: stationData.map(s => s.fleet_current),
-            borderColor: "#22c55e",
-            tension: 0.3
-          },
-          {
-            label: "Utilization %",
-            data: stationData.map(s => s.utilization_current * 100),
-            borderColor: "#f59e0b",
-            tension: 0.3,
-            yAxisID: "y1"
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: "Performance Flotta per Station",
-            color: "#e5e7eb",
-            font: { size: 16, weight: "600" },
-            padding: { bottom: 12 }
-          },
-          legend: { position: "top" }
-        },
-        scales: {
-          y: { position: "left" },
-          y1: {
-            position: "right",
-            grid: { drawOnChartArea: false },
-            ticks: { callback: v => v + "%" }
-          }
-        }
-      }
-    });
-  }
-
-  /* ===============================
-     DONUT – FLEET PER STATION
-  ================================ */
-  if (stationData.length) {
-    charts.donutFleet = new Chart(donutFleet, {
-      type: "doughnut",
-      data: {
-        labels: stationData.map(s => s.Station),
-        datasets: [{
-          data: stationData.map(s => s.fleet_current)
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: "Distribuzione Fleet Current per Station",
-            color: "#e5e7eb",
-            font: { size: 16, weight: "600" },
-            padding: { bottom: 12 }
-          },
-          legend: { position: "right" }
-        }
-      }
-    });
-  }
-
-  /* ===============================
-     DONUT – MANUTENZIONE PER TIPO
-     (NON filtrata per station)
-  ================================ */
+  /* DONUT MAINTENANCE (GLOBAL) */
   const maintMap = {};
-
-  maintenance.forEach(m => {
-    maintMap[m.Type] = (maintMap[m.Type] || 0) + 1;
+  maintenance.forEach(m=>{
+    maintMap[m.Type]=(maintMap[m.Type]||0)+1;
   });
 
-  if (Object.keys(maintMap).length) {
-    charts.donutMaintenance = new Chart(donutMaintenance, {
-      type: "doughnut",
-      data: {
-        labels: Object.keys(maintMap),
-        datasets: [{
-          data: Object.values(maintMap)
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: "Distribuzione Interventi di Manutenzione",
-            color: "#e5e7eb",
-            font: { size: 16, weight: "600" },
-            padding: { bottom: 12 }
-          },
-          legend: { position: "right" }
+  charts.donutMaintenance = new Chart(donutMaintenance,{
+    type:'doughnut',
+    data:{
+      labels:Object.keys(maintMap),
+      datasets:[{data:Object.values(maintMap)}]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        title:{
+          display:true,
+          text:'Distribuzione Interventi di Manutenzione',
+          color:'#e5e7eb',
+          font:{size:16,weight:'600'}
         }
       }
-    });
-  }
+    }
+  });
 }
-
 </script>
 </body>
 </html>
