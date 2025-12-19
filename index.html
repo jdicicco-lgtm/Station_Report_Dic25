@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fleet & Booking Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100">
+
+<div class="max-w-7xl mx-auto p-6 space-y-8">
+
+  <!-- FILTRI -->
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <input type="date" id="dateFrom" class="bg-slate-800 p-2 rounded">
+    <input type="date" id="dateTo" class="bg-slate-800 p-2 rounded">
+
+    <select id="stationFilter" class="bg-slate-800 p-2 rounded">
+      <option value="">All Stations</option>
+    </select>
+
+    <select id="providerFilter" class="bg-slate-800 p-2 rounded">
+      <option value="">All Providers</option>
+    </select>
+
+    <select id="channelFilter" class="bg-slate-800 p-2 rounded">
+      <option value="">All Channels</option>
+    </select>
+  </div>
+
+  <!-- KPI -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6" id="kpiContainer"></div>
+
+  <!-- GRAFICI -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+    <canvas id="lineDaily"></canvas>
+    <canvas id="lineStation"></canvas>
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+    <canvas id="donutFleet"></canvas>
+    <canvas id="donutMaintenance"></canvas>
+  </div>
+
+</div>
+
+<script>
+/* ===============================
+   LOAD JSON
+================================ */
+let bookings = [], stations = [], maintenance = [];
+
+Promise.all([
+  fetch('prenotazioni.json').then(r => r.json()),
+  fetch('reporting_stations.json').then(r => r.json()),
+  fetch('maintenance_services.json').then(r => r.json())
+]).then(([b, s, m]) => {
+  bookings = b;
+  stations = s;
+  maintenance = m;
+  initDashboard();
+});
+
+/* ===============================
+   HELPERS
+================================ */
+const parseDate = d => new Date(d);
+const sum = (arr, k) => arr.reduce((a,b)=>a+(+b[k]||0),0);
+const avg = (arr, k) => arr.length ? sum(arr,k)/arr.length : 0;
+
+const pctDelta = (curr, prev) =>
+  prev === 0 ? 0 : ((curr - prev) / prev) * 100;
+
+/* ===============================
+   INIT
+================================ */
+function initDashboard() {
+  populateFilters();
+  applyFilters();
+  document.querySelectorAll('input,select')
+    .forEach(el => el.addEventListener('change', applyFilters));
+}
+
+/* ===============================
+   FILTERS
+================================ */
+function populateFilters() {
+  [...new Set(stations.map(s => s.Station))].forEach(v =>
+    stationFilter.innerHTML += `<option>${v}</option>`
+  );
+  [...new Set(bookings.map(b => b.Provider))].forEach(v =>
+    providerFilter.innerHTML += `<option>${v}</option>`
+  );
+  [...new Set(bookings.map(b => b.SellingChannel))].forEach(v =>
+    channelFilter.innerHTML += `<option>${v}</option>`
+  );
+}
+
+/* ===============================
+   CORE LOGIC
+================================ */
+function applyFilters() {
+
+  const from = parseDate(dateFrom.value);
+  const to = parseDate(dateTo.value);
+  const days = Math.max(1, (to - from) / 86400000);
+
+  const prevFrom = new Date(from.getTime() - days * 86400000);
+  const prevTo = from;
+
+  const station = stationFilter.value;
+  const provider = providerFilter.value;
+  const channel = channelFilter.value;
+
+  let currBookings = bookings.filter(b =>
+    (!station || b.Station === station) &&
+    (!provider || b.Provider === provider) &&
+    (!channel || b.SellingChannel === channel) &&
+    parseDate(b.Date) >= from &&
+    parseDate(b.Date) <= to
+  );
+
+  let prevBookings = bookings.filter(b =>
+    (!station || b.Station === station) &&
+    (!provider || b.Provider === provider) &&
+    (!channel || b.SellingChannel === channel) &&
+    parseDate(b.Date) >= prevFrom &&
+    parseDate(b.Date) < prevTo
+  );
+
+  renderKPIs(currBookings, prevBookings, station);
+  renderCharts(currBookings, station);
+}
+
+/* ===============================
+   KPI
+================================ */
+function renderKPIs(curr, prev, station) {
+
+  const kpis = [
+    { label:'Prenotazioni', v: curr.length, p: prev.length },
+    { label:'Revenue €', v: sum(curr,'Revenue'), p: sum(prev,'Revenue') },
+    { label:'Ancillaries €', v: sum(curr,'Ancillaries'), p: sum(prev,'Ancillaries') },
+    { label:'RevDay Anc.', v: avg(curr,'RevDayAnc'), p: avg(prev,'RevDayAnc') }
+  ];
+
+  // Fleet KPIs (NON influenzati da provider/channel)
+  let fleetData = stations.filter(s => !station || s.Station === station);
+  kpis.push(
+    { label:'% Utilization', v: avg(fleetData,'Utilization'), p:0 },
+    { label:'In Maintenance', v: avg(maintenance,'Vehicles'), p:0 },
+    { label:'Fleet Current', v: avg(fleetData,'FleetCurrent'), p:0 }
+  );
+
+  kpiContainer.innerHTML = kpis.map(k => {
+    const d = pctDelta(k.v,k.p);
+    return `
+      <div class="bg-slate-900 p-4 rounded">
+        <div class="text-slate-400 text-sm">${k.label}</div>
+        <div class="text-2xl font-bold">${k.v.toFixed(1)}</div>
+        <div class="${d>=0?'text-green-400':'text-red-400'} text-sm">
+          ${d.toFixed(1)}%
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ===============================
+   CHARTS
+================================ */
+let charts = {};
+
+function renderCharts(curr, station) {
+
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+
+  // LINE DAILY
+  const byDay = {};
+  curr.forEach(b => {
+    byDay[b.Date] ??= {c:0,r:0,a:0};
+    byDay[b.Date].c++;
+    byDay[b.Date].r += +b.Revenue||0;
+    byDay[b.Date].a += +b.Ancillaries||0;
+  });
+
+  charts.lineDaily = new Chart(lineDaily,{
+    type:'line',
+    data:{
+      labels:Object.keys(byDay),
+      datasets:[{
+        label:'Prenotazioni',
+        data:Object.values(byDay).map(v=>v.c)
+      }]
+    }
+  });
+
+  // LINE STATION
+  const st = stations.filter(s=>!station||s.Station===station);
+  charts.lineStation = new Chart(lineStation,{
+    type:'line',
+    data:{
+      labels:st.map(s=>s.Station),
+      datasets:[
+        { label:'Fleet', data:st.map(s=>s.FleetCurrent) },
+        { label:'Utilization %', data:st.map(s=>s.Utilization), yAxisID:'y1' }
+      ]
+    },
+    options:{ scales:{ y1:{ position:'right' } } }
+  });
+
+  // DONUT FLEET
+  charts.donutFleet = new Chart(donutFleet,{
+    type:'doughnut',
+    data:{
+      labels:st.map(s=>s.Station),
+      datasets:[{ data:st.map(s=>s.FleetCurrent) }]
+    }
+  });
+
+  // DONUT MAINTENANCE
+  const byType = {};
+  maintenance.forEach(m=>{
+    byType[m.Type] = (byType[m.Type]||0)+(+m.Vehicles||0);
+  });
+
+  charts.donutMaintenance = new Chart(donutMaintenance,{
+    type:'doughnut',
+    data:{
+      labels:Object.keys(byType),
+      datasets:[{ data:Object.values(byType) }]
+    }
+  });
+}
+</script>
+</body>
+</html>
