@@ -1,0 +1,212 @@
+[
+  {
+    "Car":"GP764BH",
+    "Category":"Small (group B)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Ordinario"
+  },
+  {
+    "Car":"GF969TB",
+    "Category":"Furgone L2H2 (group K2)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GN033SE",
+    "Category":"Small (group B)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GV247AK",
+    "Category":"Large Automatic (group D1)",
+    "Branch Office":"Brindisi",
+    "Type":"Carrozzeria"
+  },
+  {
+    "Car":"GK200HF",
+    "Category":"Furgone Mini (gruppo K)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GL427WT",
+    "Category":"Furgone L1H1 (group K1)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GK935HF",
+    "Category":"Furgone Mini (gruppo K)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GN715GT",
+    "Category":"Furgone Mini (gruppo K)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GL428WT",
+    "Category":"Furgone L1H1 (group K1)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Ordinario"
+  },
+  {
+    "Car":"GL424WT",
+    "Category":"Furgone L1H1 (group K1)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GJ265LD",
+    "Category":"Small (group B)",
+    "Branch Office":"Trapani Aeroporto",
+    "Type":"Rifornimento"
+  },
+  {
+    "Car":"GT687VW",
+    "Category":"Premium (group P)",
+    "Branch Office":"Cassino",
+    "Type":"Carrozzeria"
+  },
+  {
+    "Car":"GN251MT",
+    "Category":"Station Wagon Automatic (group S1)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GP416RB",
+    "Category":"Small (group B)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GS031FE",
+    "Category":"Large Automatic (group D1)",
+    "Branch Office":"Brindisi",
+    "Type":"Carrozzeria"
+  },
+  {
+    "Car":"GN400EY",
+    "Category":"Suv Automatic (group J1)",
+    "Branch Office":"Roma Fiumicino ",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GK195CC",
+    "Category":"Large Automatic (group D1)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GM688JH",
+    "Category":"Economy (group C)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GP648HR",
+    "Category":"Mini (group A)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GM687JH",
+    "Category":"Economy (group C)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GN732ZZ",
+    "Category":"Large Automatic (group D1)",
+    "Branch Office":"Cassino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GP654HR",
+    "Category":"Mini (group A)",
+    "Branch Office":"Napoli Capodichino",
+    "Type":"BuyBack"
+  },
+  {
+    "Car":"GR979BD",
+    "Category":"Van 9 Seats (group M)",
+    "Branch Office":"Brindisi",
+    "Type":"Carrozzeria"
+  },
+  {
+    "Car":"GR490PB",
+    "Category":"Large Automatic (group D1)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Ordinario"
+  },
+  {
+    "Car":"HA896JN",
+    "Category":"Furgone L3H2 (group K3)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Ordinario"
+  },
+  {
+    "Car":"GV239AK",
+    "Category":"Large Automatic (group D1)",
+    "Branch Office":"Cassino",
+    "Type":"Cambio Gomme"
+  },
+  {
+    "Car":"GN499WM",
+    "Category":"Furgone L2H2 (group K2)",
+    "Branch Office":"Cassino",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GT421PS",
+    "Category":"Economy Automatic (group C1)",
+    "Branch Office":"Napoli Capodichino",
+    "Type":"Tagliando Ordinario"
+  },
+  {
+    "Car":"GT243PS",
+    "Category":"Mini (group A)",
+    "Branch Office":"Brindisi",
+    "Type":"Tagliando Ordinario"
+  },
+  {
+    "Car":"GH616VL",
+    "Category":"Small (group B)",
+    "Branch Office":"Trapani Aeroporto",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GJ265LD",
+    "Category":"Small (group B)",
+    "Branch Office":"Trapani Aeroporto",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GJ341LD",
+    "Category":"Small (group B)",
+    "Branch Office":"Trapani Aeroporto",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GJ345LD",
+    "Category":"Small (group B)",
+    "Branch Office":"Trapani Aeroporto",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GM423XA",
+    "Category":"Small (group B)",
+    "Branch Office":"Trapani Aeroporto",
+    "Type":"Tagliando Straordinario "
+  },
+  {
+    "Car":"GM391HP",
+    "Category":"Small (group B)",
+    "Branch Office":"Trapani Aeroporto",
+    "Type":"Tagliando Straordinario "
+  }
+]
