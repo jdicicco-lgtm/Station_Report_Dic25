@@ -21,21 +21,13 @@
     <input type="date" id="dateFrom" class="bg-slate-800 p-2 rounded">
     <input type="date" id="dateTo" class="bg-slate-800 p-2 rounded">
 
-    <select id="stationFilter" class="bg-slate-800 p-2 rounded">
-      <option value="">All Stations</option>
-    </select>
-
-    <select id="providerFilter" class="bg-slate-800 p-2 rounded">
-      <option value="">All Providers</option>
-    </select>
-
-    <select id="channelFilter" class="bg-slate-800 p-2 rounded">
-      <option value="">All Channels</option>
-    </select>
+    <select id="stationFilter" class="bg-slate-800 p-2 rounded"></select>
+    <select id="providerFilter" class="bg-slate-800 p-2 rounded"></select>
+    <select id="channelFilter" class="bg-slate-800 p-2 rounded"></select>
   </div>
 
   <!-- KPI -->
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-6" id="kpiContainer"></div>
+  <div id="kpiContainer" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
 
   <!-- GRAFICI -->
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -52,7 +44,7 @@
 
 <script>
 /* ===============================
-   LOAD JSON
+   LOAD DATA
 ================================ */
 let bookings = [], stations = [], maintenance = [];
 
@@ -64,42 +56,54 @@ Promise.all([
   bookings = b;
   stations = s;
   maintenance = m;
-  initDashboard();
+  init();
 });
-
-/* ===============================
-   HELPERS
-================================ */
-const parseDate = d => new Date(d);
-const sum = (arr, k) => arr.reduce((a,b)=>a+(+b[k]||0),0);
-const avg = (arr, k) => arr.length ? sum(arr,k)/arr.length : 0;
-
-const pctDelta = (curr, prev) =>
-  prev === 0 ? 0 : ((curr - prev) / prev) * 100;
 
 /* ===============================
    INIT
 ================================ */
-function initDashboard() {
+function init() {
   populateFilters();
+  setDefaultDates();
   applyFilters();
   document.querySelectorAll('input,select')
     .forEach(el => el.addEventListener('change', applyFilters));
 }
 
 /* ===============================
-   FILTERS
+   HELPERS
+================================ */
+const sum = (arr, fn) => arr.reduce((a,b)=>a+fn(b),0);
+const avg = (arr, fn) => arr.length ? sum(arr,fn)/arr.length : 0;
+const pct = (c,p) => p === 0 ? 0 : ((c-p)/p)*100;
+
+/* ===============================
+   FILTER SETUP
 ================================ */
 function populateFilters() {
-  [...new Set(stations.map(s => s.Station))].forEach(v =>
-    stationFilter.innerHTML += `<option>${v}</option>`
-  );
-  [...new Set(bookings.map(b => b.Provider))].forEach(v =>
-    providerFilter.innerHTML += `<option>${v}</option>`
-  );
-  [...new Set(bookings.map(b => b.SellingChannel))].forEach(v =>
-    channelFilter.innerHTML += `<option>${v}</option>`
-  );
+
+  stationFilter.innerHTML =
+    `<option value="">All Stations</option>` +
+    [...new Set(stations.map(s => s.Station))]
+      .map(v => `<option>${v}</option>`).join('');
+
+  providerFilter.innerHTML =
+    `<option value="">All Providers</option>` +
+    [...new Set(bookings.map(b => b.Provider).filter(Boolean))]
+      .map(v => `<option>${v}</option>`).join('');
+
+  channelFilter.innerHTML =
+    `<option value="">All Channels</option>` +
+    [...new Set(bookings.map(b => b["Selling channel"]).filter(Boolean))]
+      .map(v => `<option>${v}</option>`).join('');
+}
+
+function setDefaultDates() {
+  const dates = bookings.map(b => new Date(b.Checkout));
+  const min = new Date(Math.min(...dates));
+  const max = new Date(Math.max(...dates));
+  dateFrom.value = min.toISOString().slice(0,10);
+  dateTo.value = max.toISOString().slice(0,10);
 }
 
 /* ===============================
@@ -107,35 +111,29 @@ function populateFilters() {
 ================================ */
 function applyFilters() {
 
-  const from = parseDate(dateFrom.value);
-  const to = parseDate(dateTo.value);
+  const from = new Date(dateFrom.value);
+  const to = new Date(dateTo.value);
   const days = Math.max(1, (to - from) / 86400000);
 
-  const prevFrom = new Date(from.getTime() - days * 86400000);
+  const prevFrom = new Date(from.getTime() - days*86400000);
   const prevTo = from;
 
-  const station = stationFilter.value;
-  const provider = providerFilter.value;
-  const channel = channelFilter.value;
+  const st = stationFilter.value;
+  const pr = providerFilter.value;
+  const ch = channelFilter.value;
 
-  let currBookings = bookings.filter(b =>
-    (!station || b.Station === station) &&
-    (!provider || b.Provider === provider) &&
-    (!channel || b.SellingChannel === channel) &&
-    parseDate(b.Date) >= from &&
-    parseDate(b.Date) <= to
-  );
+  const filterBooking = (b, f, t) =>
+    (!st || b["Checkout Station"] === st) &&
+    (!pr || b.Provider === pr) &&
+    (!ch || b["Selling channel"] === ch) &&
+    new Date(b.Checkout) >= f &&
+    new Date(b.Checkout) <= t;
 
-  let prevBookings = bookings.filter(b =>
-    (!station || b.Station === station) &&
-    (!provider || b.Provider === provider) &&
-    (!channel || b.SellingChannel === channel) &&
-    parseDate(b.Date) >= prevFrom &&
-    parseDate(b.Date) < prevTo
-  );
+  const curr = bookings.filter(b => filterBooking(b, from, to));
+  const prev = bookings.filter(b => filterBooking(b, prevFrom, prevTo));
 
-  renderKPIs(currBookings, prevBookings, station);
-  renderCharts(currBookings, station);
+  renderKPIs(curr, prev, st);
+  renderCharts(curr, st);
 }
 
 /* ===============================
@@ -144,22 +142,50 @@ function applyFilters() {
 function renderKPIs(curr, prev, station) {
 
   const kpis = [
-    { label:'Prenotazioni', v: curr.length, p: prev.length },
-    { label:'Revenue €', v: sum(curr,'Revenue'), p: sum(prev,'Revenue') },
-    { label:'Ancillaries €', v: sum(curr,'Ancillaries'), p: sum(prev,'Ancillaries') },
-    { label:'RevDay Anc.', v: avg(curr,'RevDayAnc'), p: avg(prev,'RevDayAnc') }
+    {
+      label: "Prenotazioni",
+      v: curr.length,
+      p: prev.length
+    },
+    {
+      label: "Revenue €",
+      v: sum(curr, b => b["Total revenue"] || 0),
+      p: sum(prev, b => b["Total revenue"] || 0)
+    },
+    {
+      label: "Ancillaries €",
+      v: sum(curr, b => b.Ancillaries || 0),
+      p: sum(prev, b => b.Ancillaries || 0)
+    },
+    {
+      label: "RevDay Anc.",
+      v: avg(curr, b => b["RevDay Ancillaries"] || 0),
+      p: avg(prev, b => b["RevDay Ancillaries"] || 0)
+    }
   ];
 
-  // Fleet KPIs (NON influenzati da provider/channel)
-  let fleetData = stations.filter(s => !station || s.Station === station);
+  const fleet = stations.filter(s => !station || s.Station === station);
+
   kpis.push(
-    { label:'% Utilization', v: avg(fleetData,'Utilization'), p:0 },
-    { label:'In Maintenance', v: avg(maintenance,'Vehicles'), p:0 },
-    { label:'Fleet Current', v: avg(fleetData,'FleetCurrent'), p:0 }
+    {
+      label: "% Utilization",
+      v: avg(fleet, s => s.utilization_current)*100,
+      p: 0
+    },
+    {
+      label: "Fleet Current",
+      v: avg(fleet, s => s.fleet_current),
+      p: 0
+    },
+    {
+      label: "Vehicles in Maintenance",
+      v: maintenance.filter(m => !station || m["Branch Office"] === station).length,
+      p: 0
+    }
   );
 
   kpiContainer.innerHTML = kpis.map(k => {
-    const d = pctDelta(k.v,k.p);
+    const d = pct(k.v, k.p);
     return `
       <div class="bg-slate-900 p-4 rounded">
         <div class="text-slate-400 text-sm">${k.label}</div>
@@ -181,54 +207,67 @@ function renderCharts(curr, station) {
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
 
-  // LINE DAILY
-  const byDay = {};
+  /* LINE DAILY */
+  const daily = {};
   curr.forEach(b => {
-    byDay[b.Date] ??= {c:0,r:0,a:0};
-    byDay[b.Date].c++;
-    byDay[b.Date].r += +b.Revenue||0;
-    byDay[b.Date].a += +b.Ancillaries||0;
+    const d = new Date(b.Checkout).toISOString().slice(0,10);
+    daily[d] ??= {c:0,r:0,a:0};
+    daily[d].c++;
+    daily[d].r += b["Total revenue"]||0;
+    daily[d].a += b.Ancillaries||0;
   });
 
   charts.lineDaily = new Chart(lineDaily,{
     type:'line',
     data:{
-      labels:Object.keys(byDay),
+      labels:Object.keys(daily),
       datasets:[{
         label:'Prenotazioni',
-        data:Object.values(byDay).map(v=>v.c)
+        data:Object.values(daily).map(v=>v.c),
+        borderColor:'#38bdf8'
       }]
     }
   });
 
-  // LINE STATION
+  /* LINE STATION */
   const st = stations.filter(s=>!station||s.Station===station);
   charts.lineStation = new Chart(lineStation,{
     type:'line',
     data:{
       labels:st.map(s=>s.Station),
       datasets:[
-        { label:'Fleet', data:st.map(s=>s.FleetCurrent) },
-        { label:'Utilization %', data:st.map(s=>s.Utilization), yAxisID:'y1' }
+        {
+          label:'Fleet Current',
+          data:st.map(s=>s.fleet_current),
+          borderColor:'#22c55e'
+        },
+        {
+          label:'Utilization %',
+          data:st.map(s=>s.utilization_current*100),
+          borderColor:'#f59e0b',
+          yAxisID:'y1'
+        }
       ]
     },
     options:{ scales:{ y1:{ position:'right' } } }
   });
 
-  // DONUT FLEET
+  /* DONUT FLEET */
   charts.donutFleet = new Chart(donutFleet,{
     type:'doughnut',
     data:{
       labels:st.map(s=>s.Station),
-      datasets:[{ data:st.map(s=>s.FleetCurrent) }]
+      datasets:[{ data:st.map(s=>s.fleet_current) }]
     }
   });
 
-  // DONUT MAINTENANCE
+  /* DONUT MAINTENANCE */
   const byType = {};
-  maintenance.forEach(m=>{
-    byType[m.Type] = (byType[m.Type]||0)+(+m.Vehicles||0);
-  });
+  maintenance
+    .filter(m => !station || m["Branch Office"] === station)
+    .forEach(m => {
+      byType[m.Type] = (byType[m.Type]||0)+1;
+    });
 
   charts.donutMaintenance = new Chart(donutMaintenance,{
     type:'doughnut',
