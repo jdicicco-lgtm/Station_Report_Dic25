@@ -231,34 +231,41 @@ function renderCharts(curr,station){
   charts={};
 
   /* LINE DAILY – no undefined */
-  const daily={};
-  curr.forEach(b=>{
-    const d=new Date(b.Checkout);
-    if (isNaN(d)) return;
-    const key=d.toISOString().slice(0,10);
-    daily[key]=(daily[key]||0)+1;
-  });
+const daily = {};
 
-  const days=Object.keys(daily).sort();
+curr.forEach(b => {
+  const d = new Date(b.Checkout);
+  if (isNaN(d)) return;
+  const key = d.toISOString().slice(0, 10);
+  daily[key] = (daily[key] || 0) + 1;
+});
 
-  charts.lineDaily=new Chart(lineDaily,{
-    type:'line',
-    data:{
-      labels:days,
-      datasets:[{
-        data:days.map(d=>daily[d]),
-        borderColor:'#facc15',
-        backgroundColor:'rgba(250,204,21,0.15)',
-        fill:true,
-        tension:0.35
-      }]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{title:{display:true,text:'Andamento Prenotazioni Giornaliere'}}
+const days = Object.keys(daily).sort();
+
+charts.lineDaily = new Chart(lineDaily, {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [{
+      label: 'Prenotazioni', // ✅ AGGIUNTO (risolve "undefined")
+      data: days.map(d => daily[d]),
+      borderColor: '#facc15',
+      backgroundColor: 'rgba(250,204,21,0.15)',
+      fill: true,
+      tension: 0.35
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      title: {
+        display: true,
+        text: 'Andamento Prenotazioni Giornaliere'
+      }
     }
-  });
+  }
+});
 
   /* LINE STATION – Utilization only */
   const sd=stations.filter(s=>!station||s.Station===station);
