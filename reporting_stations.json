@@ -1,0 +1,62 @@
+[
+  {
+    "Station":"Cassino",
+    "fleet_current":92.2903225806,
+    "utilization_current":0.44
+  },
+  {
+    "Station":"Roma Fiumicino",
+    "fleet_current":54.7419354839,
+    "utilization_current":0.43
+  },
+  {
+    "Station":"Cassino NLT",
+    "fleet_current":28.935483871,
+    "utilization_current":0.79
+  },
+  {
+    "Station":"Roma Termini",
+    "fleet_current":20.5483870968,
+    "utilization_current":0.47
+  },
+  {
+    "Station":"Napoli Capodichino",
+    "fleet_current":29.9677419355,
+    "utilization_current":0.28
+  },
+  {
+    "Station":"Brindisi",
+    "fleet_current":21.064516129,
+    "utilization_current":0.21
+  },
+  {
+    "Station":"Trapani Porto",
+    "fleet_current":9.2580645161,
+    "utilization_current":0.44
+  },
+  {
+    "Station":"Napoli Stazione",
+    "fleet_current":3.5161290323,
+    "utilization_current":0.74
+  },
+  {
+    "Station":"Firenze",
+    "fleet_current":12.9032258065,
+    "utilization_current":0.16
+  },
+  {
+    "Station":"Valle di Comino",
+    "fleet_current":9.3225806452,
+    "utilization_current":0.2
+  },
+  {
+    "Station":"Trapani Aeroporto",
+    "fleet_current":10.6129032258,
+    "utilization_current":0.11
+  },
+  {
+    "Station":"Sorrento",
+    "fleet_current":4.064516129,
+    "utilization_current":0.18
+  }
+]
