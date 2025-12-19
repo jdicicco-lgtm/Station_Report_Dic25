@@ -210,7 +210,6 @@ let charts = {};
 
 function renderCharts(currBookings, selectedStation) {
 
-  // 🔥 distrugge correttamente i grafici precedenti
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
 
@@ -221,9 +220,7 @@ function renderCharts(currBookings, selectedStation) {
 
   currBookings.forEach(b => {
     const day = new Date(b.Checkout).toISOString().slice(0,10);
-    if (!dailyMap[day]) {
-      dailyMap[day] = { count:0, revenue:0, anc:0, revDay:0 };
-    }
+    dailyMap[day] ??= { count:0, revenue:0, anc:0, revDay:0 };
     dailyMap[day].count++;
     dailyMap[day].revenue += b["Total revenue"] || 0;
     dailyMap[day].anc += b.Ancillaries || 0;
@@ -232,59 +229,50 @@ function renderCharts(currBookings, selectedStation) {
 
   const days = Object.keys(dailyMap).sort();
 
-  charts.lineDaily = new Chart(
-    document.getElementById("lineDaily"),
-    {
-      type: "line",
-      data: {
-        labels: days,
-        datasets: [
-          {
-            label: "Prenotazioni",
-            data: days.map(d => dailyMap[d].count),
-            borderColor: "#38bdf8",
-            backgroundColor: "rgba(56,189,248,0.15)",
-            tension: 0.35,
-            fill: true,
-            pointRadius: 3
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              afterLabel: ctx => {
-                const d = dailyMap[ctx.label];
-                return [
-                  `Revenue: €${d.revenue.toFixed(2)}`,
-                  `Ancillaries: €${d.anc.toFixed(2)}`,
-                  `RevDay Anc: €${(d.revDay/d.count || 0).toFixed(2)}`
-                ];
-              }
+  charts.lineDaily = new Chart(lineDaily, {
+    type: "line",
+    data: {
+      labels: days,
+      datasets: [{
+        label: "Prenotazioni",
+        data: days.map(d => dailyMap[d].count),
+        borderColor: "#38bdf8",
+        backgroundColor: "rgba(56,189,248,0.15)",
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel: ctx => {
+              const d = dailyMap[ctx.label];
+              return [
+                `Revenue: €${d.revenue.toFixed(2)}`,
+                `Ancillaries: €${d.anc.toFixed(2)}`,
+                `RevDay Anc: €${(d.revDay / d.count || 0).toFixed(2)}`
+              ];
             }
           }
-        },
-        scales: {
-          x: { ticks: { color: "#94a3b8" } },
-          y: { ticks: { color: "#94a3b8" } }
         }
       }
     }
-  );
+  });
 
   /* ===============================
      LINE CHART – PERFORMANCE STATION
   ================================ */
-  const stationData = reporting_stations
-    .filter(s => !selectedStation || s.Station === selectedStation);
+  const stationData = stations.filter(
+    s => !selectedStation || s.Station === selectedStation
+  );
 
-  charts.lineStation = new Chart(
-    document.getElementById("lineStation"),
-    {
+  if (stationData.length) {
+    charts.lineStation = new Chart(lineStation, {
       type: "line",
       data: {
         labels: stationData.map(s => s.Station),
@@ -293,8 +281,7 @@ function renderCharts(currBookings, selectedStation) {
             label: "Fleet Current",
             data: stationData.map(s => s.fleet_current),
             borderColor: "#22c55e",
-            tension: 0.3,
-            yAxisID: "y"
+            tension: 0.3
           },
           {
             label: "Utilization %",
@@ -309,93 +296,67 @@ function renderCharts(currBookings, selectedStation) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: {
-            position: "top",
-            labels: { boxWidth: 12 }
-          }
+          legend: { position: "top" }
         },
         scales: {
-          y: {
-            position: "left",
-            ticks: { color: "#94a3b8" }
-          },
+          y: { position: "left" },
           y1: {
             position: "right",
             grid: { drawOnChartArea: false },
-            ticks: {
-              callback: v => v + "%",
-              color: "#94a3b8"
-            }
-          },
-          x: { ticks: { color: "#94a3b8" } }
+            ticks: { callback: v => v + "%" }
+          }
         }
       }
-    }
-  );
+    });
+  }
 
   /* ===============================
      DONUT – FLEET PER STATION
   ================================ */
-  charts.donutFleet = new Chart(
-    document.getElementById("donutFleet"),
-    {
+  if (stationData.length) {
+    charts.donutFleet = new Chart(donutFleet, {
       type: "doughnut",
       data: {
         labels: stationData.map(s => s.Station),
-        datasets: [
-          {
-            data: stationData.map(s => s.fleet_current)
-          }
-        ]
+        datasets: [{ data: stationData.map(s => s.fleet_current) }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: {
-            position: "right",
-            labels: { boxWidth: 12 }
-          }
+          legend: { position: "right" }
         }
       }
-    }
-  );
+    });
+  }
 
   /* ===============================
      DONUT – MANUTENZIONE PER TIPO
   ================================ */
   const maintMap = {};
 
-  maintenance_services
+  maintenance
     .filter(m => !selectedStation || m["Branch Office"] === selectedStation)
     .forEach(m => {
       maintMap[m.Type] = (maintMap[m.Type] || 0) + 1;
     });
 
-  charts.donutMaintenance = new Chart(
-    document.getElementById("donutMaintenance"),
-    {
+  if (Object.keys(maintMap).length) {
+    charts.donutMaintenance = new Chart(donutMaintenance, {
       type: "doughnut",
       data: {
         labels: Object.keys(maintMap),
-        datasets: [
-          {
-            data: Object.values(maintMap)
-          }
-        ]
+        datasets: [{ data: Object.values(maintMap) }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: {
-            position: "right",
-            labels: { boxWidth: 12 }
-          }
+          legend: { position: "right" }
         }
       }
-    }
-  );
+    });
+  }
 }
 </script>
 </body>
