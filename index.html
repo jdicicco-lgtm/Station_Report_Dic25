@@ -17,7 +17,7 @@
 <div class="max-w-7xl mx-auto p-6 space-y-8">
 
   <!-- FILTRI -->
-  <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
     <input type="date" id="dateFrom" class="bg-slate-800 p-2 rounded">
     <input type="date" id="dateTo" class="bg-slate-800 p-2 rounded">
 
@@ -25,6 +25,11 @@
     <select id="providerFilter" class="bg-slate-800 p-2 rounded"></select>
     <select id="agentFilter" class="bg-slate-800 p-2 rounded"></select>
     <select id="channelFilter" class="bg-slate-800 p-2 rounded"></select>
+
+    <button id="cleanFilters"
+      class="bg-slate-700 hover:bg-slate-600 transition p-2 rounded text-sm">
+      Clean Filters
+    </button>
   </div>
 
   <!-- KPI -->
@@ -82,6 +87,8 @@ function init() {
   providerFilter.addEventListener('change', applyFilters);
   agentFilter.addEventListener('change', applyFilters);
   channelFilter.addEventListener('change', applyFilters);
+
+  cleanFilters.addEventListener('click', resetFilters);
 }
 
 /* ===============================
@@ -119,10 +126,20 @@ function populateFilters() {
 
 function setDefaultDates() {
   const dates = bookings.map(b => new Date(b.Checkout));
-  const min = new Date(Math.min(...dates));
-  const max = new Date(Math.max(...dates));
-  dateFrom.value = min.toISOString().slice(0,10);
-  dateTo.value = max.toISOString().slice(0,10);
+  dateFrom.value = new Date(Math.min(...dates)).toISOString().slice(0,10);
+  dateTo.value   = new Date(Math.max(...dates)).toISOString().slice(0,10);
+}
+
+/* ===============================
+   RESET FILTERS
+================================ */
+function resetFilters() {
+  stationFilter.value = "";
+  providerFilter.value = "";
+  agentFilter.value = "";
+  channelFilter.value = "";
+  setDefaultDates();
+  applyFilters();
 }
 
 /* ===============================
@@ -131,24 +148,28 @@ function setDefaultDates() {
 function applyFilters() {
 
   const from = new Date(dateFrom.value);
-  const to = new Date(dateTo.value);
+  const to   = new Date(dateTo.value);
   if (isNaN(from) || isNaN(to)) return;
+
+  const rangeDays = Math.max(1, (to - from) / 86400000);
+  const prevFrom = new Date(from.getTime() - rangeDays * 86400000);
+  const prevTo   = new Date(from.getTime());
 
   const st = stationFilter.value;
   const pr = providerFilter.value;
   const ag = agentFilter.value;
   const ch = channelFilter.value;
 
-  const filterBooking = b =>
+  const bookingMatch = (b, f, t) =>
     (!st || b["Checkout Station"] === st) &&
     (!pr || b.Provider === pr) &&
     (!ag || b.Agent === ag) &&
     (!ch || b["Selling channel"] === ch) &&
-    new Date(b.Checkout) >= from &&
-    new Date(b.Checkout) <= to;
+    new Date(b.Checkout) >= f &&
+    new Date(b.Checkout) <= t;
 
-  const curr = bookings.filter(filterBooking);
-  const prev = []; // placeholder per confronto futuro
+  const curr = bookings.filter(b => bookingMatch(b, from, to));
+  const prev = bookings.filter(b => bookingMatch(b, prevFrom, prevTo));
 
   renderKPIs(curr, prev);
   renderCharts(curr, st);
@@ -159,26 +180,27 @@ function applyFilters() {
 ================================ */
 function renderKPIs(curr, prev) {
 
-  const fleetAvg = avg(stations, s => s.fleet_current);
-  const utilAvg = avg(stations, s => s.utilization_current) * 100;
-
   const kpis = [
-    { label: "Prenotazioni", v: curr.length, p: prev.length },
-    { label: "Revenue €", v: sum(curr, b => b["Total revenue"] || 0), p: 0 },
-    { label: "Ancillaries €", v: sum(curr, b => b.Ancillaries || 0), p: 0 },
-    { label: "RevDay Anc.", v: avg(curr, b => b["RevDay Ancillaries"] || 0), p: 0 },
-    { label: "% Utilization", v: utilAvg, p: 0 },
-    { label: "Fleet Current", v: fleetAvg, p: 0 },
-    { label: "Vehicles in Maintenance", v: maintenance.length, p: 0 }
+    { label:"Prenotazioni", v:curr.length, p:prev.length },
+    { label:"Revenue €", v:sum(curr,b=>b["Total revenue"]||0), p:sum(prev,b=>b["Total revenue"]||0) },
+    { label:"Ancillaries €", v:sum(curr,b=>b.Ancillaries||0), p:sum(prev,b=>b.Ancillaries||0) },
+    { label:"RevDay Anc.", v:avg(curr,b=>b["RevDay Ancillaries"]||0), p:avg(prev,b=>b["RevDay Ancillaries"]||0) },
+    { label:"% Utilization", v:avg(stations,s=>s.utilization_current)*100, p:avg(stations,s=>s.utilization_current)*100 },
+    { label:"Fleet Current", v:avg(stations,s=>s.fleet_current), p:avg(stations,s=>s.fleet_current) },
+    { label:"Vehicles in Maintenance", v:maintenance.length, p:maintenance.length }
   ];
 
-  kpiContainer.innerHTML = kpis.map(k => `
-    <div class="bg-slate-900 p-4 rounded">
-      <div class="text-slate-400 text-sm">${k.label}</div>
-      <div class="text-2xl font-bold">${k.v.toFixed(1)}</div>
-      <div class="text-green-400 text-sm">0.0%</div>
-    </div>
-  `).join('');
+  kpiContainer.innerHTML = kpis.map(k=>{
+    const d=pct(k.v,k.p);
+    return `
+      <div class="bg-slate-900 p-4 rounded">
+        <div class="text-slate-400 text-sm">${k.label}</div>
+        <div class="text-2xl font-bold">${k.v.toFixed(1)}</div>
+        <div class="${d>=0?'text-green-400':'text-red-400'} text-sm">
+          ${d>=0?'+':''}${d.toFixed(1)}%
+        </div>
+      </div>`;
+  }).join('');
 }
 
 /* ===============================
@@ -192,126 +214,43 @@ function renderCharts(currBookings, selectedStation) {
   charts = {};
 
   /* LINE DAILY */
-  const daily = {};
-  currBookings.forEach(b => {
-    const d = new Date(b.Checkout).toISOString().slice(0,10);
-    daily[d] ??= 0;
-    daily[d]++;
+  const daily={};
+  currBookings.forEach(b=>{
+    const d=new Date(b.Checkout).toISOString().slice(0,10);
+    daily[d]=(daily[d]||0)+1;
   });
 
-  charts.lineDaily = new Chart(lineDaily,{
+  charts.lineDaily=new Chart(lineDaily,{
     type:'line',
-    data:{
-      labels:Object.keys(daily),
-      datasets:[{
-        label:'Prenotazioni',
-        data:Object.values(daily),
-        borderColor:'#38bdf8',
-        fill:true,
-        tension:0.3
-      }]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{
-        title:{
-          display:true,
-          text:'Andamento Prenotazioni Giornaliere',
-          color:'#e5e7eb',
-          font:{size:16,weight:'600'}
-        },
-        legend:{display:false}
-      }
-    }
+    data:{labels:Object.keys(daily),datasets:[{data:Object.values(daily),borderColor:'#38bdf8',fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:'Andamento Prenotazioni Giornaliere'}}}
   });
 
   /* LINE STATION */
-  const stationData = stations.filter(
-    s => !selectedStation || s.Station === selectedStation
-  );
-
-  charts.lineStation = new Chart(lineStation,{
+  const sd=stations.filter(s=>!selectedStation||s.Station===selectedStation);
+  charts.lineStation=new Chart(lineStation,{
     type:'line',
-    data:{
-      labels:stationData.map(s=>s.Station),
-      datasets:[
-        {
-          label:'Fleet Current',
-          data:stationData.map(s=>s.fleet_current),
-          borderColor:'#22c55e'
-        },
-        {
-          label:'Utilization %',
-          data:stationData.map(s=>s.utilization_current*100),
-          borderColor:'#f59e0b',
-          yAxisID:'y1'
-        }
-      ]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{
-        title:{
-          display:true,
-          text:'Performance Flotta per Station',
-          color:'#e5e7eb',
-          font:{size:16,weight:'600'}
-        }
-      },
-      scales:{
-        y:{position:'left'},
-        y1:{position:'right',grid:{drawOnChartArea:false}}
-      }
-    }
+    data:{labels:sd.map(s=>s.Station),datasets:[
+      {label:'Fleet',data:sd.map(s=>s.fleet_current),borderColor:'#22c55e'},
+      {label:'Utilization %',data:sd.map(s=>s.utilization_current*100),borderColor:'#f59e0b',yAxisID:'y1'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:'Performance Flotta per Station'}},scales:{y1:{position:'right'}}}
   });
 
   /* DONUT FLEET */
-  charts.donutFleet = new Chart(donutFleet,{
+  charts.donutFleet=new Chart(donutFleet,{
     type:'doughnut',
-    data:{
-      labels:stationData.map(s=>s.Station),
-      datasets:[{data:stationData.map(s=>s.fleet_current)}]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{
-        title:{
-          display:true,
-          text:'Distribuzione Fleet Current per Station',
-          color:'#e5e7eb',
-          font:{size:16,weight:'600'}
-        }
-      }
-    }
+    data:{labels:sd.map(s=>s.Station),datasets:[{data:sd.map(s=>s.fleet_current)}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:'Distribuzione Fleet Current per Station'}}}
   });
 
-  /* DONUT MAINTENANCE (GLOBAL) */
-  const maintMap = {};
-  maintenance.forEach(m=>{
-    maintMap[m.Type]=(maintMap[m.Type]||0)+1;
-  });
-
-  charts.donutMaintenance = new Chart(donutMaintenance,{
+  /* DONUT MAINTENANCE */
+  const mm={};
+  maintenance.forEach(m=>mm[m.Type]=(mm[m.Type]||0)+1);
+  charts.donutMaintenance=new Chart(donutMaintenance,{
     type:'doughnut',
-    data:{
-      labels:Object.keys(maintMap),
-      datasets:[{data:Object.values(maintMap)}]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{
-        title:{
-          display:true,
-          text:'Distribuzione Interventi di Manutenzione',
-          color:'#e5e7eb',
-          font:{size:16,weight:'600'}
-        }
-      }
-    }
+    data:{labels:Object.keys(mm),datasets:[{data:Object.values(mm)}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:'Distribuzione Interventi di Manutenzione'}}}
   });
 }
 </script>
