@@ -210,6 +210,9 @@ let charts = {};
 
 function renderCharts(currBookings, selectedStation) {
 
+  /* ===============================
+     CLEANUP
+  ================================ */
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
 
@@ -219,8 +222,8 @@ function renderCharts(currBookings, selectedStation) {
   const dailyMap = {};
 
   currBookings.forEach(b => {
-    const day = new Date(b.Checkout).toISOString().slice(0,10);
-    dailyMap[day] ??= { count:0, revenue:0, anc:0, revDay:0 };
+    const day = new Date(b.Checkout).toISOString().slice(0, 10);
+    dailyMap[day] ??= { count: 0, revenue: 0, anc: 0, revDay: 0 };
     dailyMap[day].count++;
     dailyMap[day].revenue += b["Total revenue"] || 0;
     dailyMap[day].anc += b.Ancillaries || 0;
@@ -247,6 +250,13 @@ function renderCharts(currBookings, selectedStation) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
+        title: {
+          display: true,
+          text: "Andamento Prenotazioni Giornaliere",
+          color: "#e5e7eb",
+          font: { size: 16, weight: "600" },
+          padding: { bottom: 12 }
+        },
         legend: { display: false },
         tooltip: {
           callbacks: {
@@ -296,6 +306,13 @@ function renderCharts(currBookings, selectedStation) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+          title: {
+            display: true,
+            text: "Performance Flotta per Station",
+            color: "#e5e7eb",
+            font: { size: 16, weight: "600" },
+            padding: { bottom: 12 }
+          },
           legend: { position: "top" }
         },
         scales: {
@@ -318,12 +335,21 @@ function renderCharts(currBookings, selectedStation) {
       type: "doughnut",
       data: {
         labels: stationData.map(s => s.Station),
-        datasets: [{ data: stationData.map(s => s.fleet_current) }]
+        datasets: [{
+          data: stationData.map(s => s.fleet_current)
+        }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+          title: {
+            display: true,
+            text: "Distribuzione Fleet Current per Station",
+            color: "#e5e7eb",
+            font: { size: 16, weight: "600" },
+            padding: { bottom: 12 }
+          },
           legend: { position: "right" }
         }
       }
@@ -332,32 +358,41 @@ function renderCharts(currBookings, selectedStation) {
 
   /* ===============================
      DONUT – MANUTENZIONE PER TIPO
+     (NON filtrata per station)
   ================================ */
   const maintMap = {};
 
-  maintenance
-    .filter(m => !selectedStation || m["Branch Office"] === selectedStation)
-    .forEach(m => {
-      maintMap[m.Type] = (maintMap[m.Type] || 0) + 1;
-    });
+  maintenance.forEach(m => {
+    maintMap[m.Type] = (maintMap[m.Type] || 0) + 1;
+  });
 
   if (Object.keys(maintMap).length) {
     charts.donutMaintenance = new Chart(donutMaintenance, {
       type: "doughnut",
       data: {
         labels: Object.keys(maintMap),
-        datasets: [{ data: Object.values(maintMap) }]
+        datasets: [{
+          data: Object.values(maintMap)
+        }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+          title: {
+            display: true,
+            text: "Distribuzione Interventi di Manutenzione",
+            color: "#e5e7eb",
+            font: { size: 16, weight: "600" },
+            padding: { bottom: 12 }
+          },
           legend: { position: "right" }
         }
       }
     });
   }
 }
+
 </script>
 </body>
 </html>
