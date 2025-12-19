@@ -17,14 +17,17 @@
 <div class="max-w-7xl mx-auto p-6 space-y-8">
 
   <!-- FILTRI -->
-  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-    <input type="date" id="dateFrom" class="bg-slate-800 p-2 rounded">
-    <input type="date" id="dateTo" class="bg-slate-800 p-2 rounded">
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+  <input type="date" id="dateFrom" class="bg-slate-800 p-2 rounded">
+  <input type="date" id="dateTo" class="bg-slate-800 p-2 rounded">
 
-    <select id="stationFilter" class="bg-slate-800 p-2 rounded"></select>
-    <select id="providerFilter" class="bg-slate-800 p-2 rounded"></select>
-    <select id="channelFilter" class="bg-slate-800 p-2 rounded"></select>
-  </div>
+  <select id="stationFilter" class="bg-slate-800 p-2 rounded"></select>
+  <select id="providerFilter" class="bg-slate-800 p-2 rounded"></select>
+  <select id="agentFilter" class="bg-slate-800 p-2 rounded"></select>
+  <select id="channelFilter" class="bg-slate-800 p-2 rounded"></select>
+</div>
+
+  
 
   <!-- KPI -->
   <div id="kpiContainer" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
@@ -72,9 +75,18 @@ function init() {
   populateFilters();
   setDefaultDates();
   applyFilters();
-  document.querySelectorAll('input,select')
-    .forEach(el => el.addEventListener('change', applyFilters));
+
+  // Date range
+  dateFrom.addEventListener('change', applyFilters);
+  dateTo.addEventListener('change', applyFilters);
+
+  // Filtri
+  stationFilter.addEventListener('change', applyFilters);
+  providerFilter.addEventListener('change', applyFilters);
+  agentFilter.addEventListener('change', applyFilters);
+  channelFilter.addEventListener('change', applyFilters);
 }
+
 
 /* ===============================
    HELPERS
@@ -183,12 +195,11 @@ function renderKPIs(curr, prev, station) {
       v: avg(fleet, s => s.fleet_current),
       p: 0
     },
-    {
-      label: "Vehicles in Maintenance",
-      v: maintenance.filter(m => !station || m["Branch Office"] === station).length,
-      p: 0
-    }
-  );
+  {
+  label: "Vehicles in Maintenance",
+  v: maintenance.length,
+  p: 0
+};
 
   kpiContainer.innerHTML = kpis.map(k => {
     const d = pct(k.v, k.p);
